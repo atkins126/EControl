@@ -265,6 +265,8 @@ end;
 
 procedure TGrammaAnalyzer.SetGramma(const Value: ecString);
 begin
+  Exit; //Alexey: disable gramma code yet
+
   FGrammaDefs.SetupSlow(Value);
   Changed;
 end;
@@ -276,6 +278,10 @@ end;
 
 // Compiling Gramma rules
 function TGrammaAnalyzer.CompileGramma(TokenNames: TStrings): Boolean;
+begin
+  Result := True;
+end;
+(* //removed by Alexey, not needed in CudaText
 var Lex: TecSyntAnalyzer;
     Res: TecClientSyntAnalyzer;
     Cur, i: integer;
@@ -291,7 +297,7 @@ var Lex: TecSyntAnalyzer;
 
   function ValidCur: Boolean;
   begin
-    Result := Cur < Res.TagCount;
+    Result := (Cur >= 0) and (Cur < Res.TagCount);
   end;
 
   procedure SkipComments;
@@ -302,15 +308,19 @@ var Lex: TecSyntAnalyzer;
   end;
 
   procedure ReadRepeater(RuleItem: TParserRuleItem);
-  var s: string;
   begin
     if not ValidCur then Exit;
     if Res.Tags[Cur].TokenType = 8 then
      begin
+       {
        s := Res.TagStr[Cur];
        if s = '+' then RuleItem.RepMax := -1 else
         if s = '?' then RuleItem.RepMin := 0 else
          if s = '*' then
+         }
+       if Res.TagSameAs(Cur, '+') then RuleItem.RepMax := -1 else
+        if Res.TagSameAs(Cur, '?') then RuleItem.RepMin := 0 else
+         if Res.TagSameAs(Cur, '*') then
           begin
            RuleItem.RepMin := 0;
            RuleItem.RepMax := -1;
@@ -459,6 +469,10 @@ var Lex: TecSyntAnalyzer;
 
 begin
   Result := True;
+  Exit;
+    //Alexey: disabled CompileGrammar, it gave ~1 sec per each lexer with grammar (C#, T-SQL, PL-SQL)
+    //if threaded-parser is used
+
   FGrammaRules.Clear;
   FRoot := nil;
   FSkipRule := nil;
@@ -468,7 +482,8 @@ begin
       Lex := TecSyntAnalyzer.Create(nil);
       try
         //Res := Lex.AddClient(nil, GetGrammaLines);
-        Res := TecClientSyntAnalyzer.Create(Lex, GetGrammaLines, nil);
+        //AUseTimer=False for grammar
+        Res := TecClientSyntAnalyzer.Create(Lex, GetGrammaLines);
         if Res <> nil then
           try
             // Prepare Lexer
@@ -485,7 +500,7 @@ begin
             AddTokenRule(9, '[\(]');                 // Open sub-rule
             AddTokenRule(10,'[\)]');                 // Close sub-rule
             // Extract all tokens
-            Res.Analyze;
+            Res.ParseAll(True);
             // extract rules
             Cur := 0;
             while ValidCur do
@@ -512,6 +527,7 @@ begin
       FSkipRule := ParserRuleByName('Skip');
     end;
 end;
+*)
 
 function TGrammaAnalyzer.TestRule(FromIndex: integer; Rule: TParserRule; Tags: TTokenHolder): integer;
 var FRootProgNode: TParserNode; // Results of Gramma analisys
